@@ -1,0 +1,48 @@
+name: Deploy to Dev-BE instance
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - devel
+
+jobs:
+  deploy-to-dev-be:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Give permissions to github-ci user, backup jobs folder
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USERNAME }}
+          password: ${{ secrets.DEV_PASSWORD }}
+          key: ${{ secrets.DEV_PRIVATE_KEY }}
+          script: |
+            sudo chown github-ci:github-ci /TM/data_ingest
+            sudo chown -R github-ci:github-ci /TM/data_ingest/jobs
+            cd /TM/data_ingest
+            sudo tar cvzf jobs-$(date +%Y%m%d-%H%M%S).tgz jobs
+
+      - name: Copy jobs folder to dev-be
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USERNAME }}
+          password: ${{ secrets.DEV_PASSWORD }}
+          key: ${{ secrets.DEV_PRIVATE_KEY }}
+          source: "jobs"
+          target: "/TM/data_ingest"
+
+      - name: Give permissions to tm_di_dev user
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USERNAME }}
+          password: ${{ secrets.DEV_PASSWORD }}
+          key: ${{ secrets.DEV_PRIVATE_KEY }}
+          script: |
+            sudo chown tm_di_dev:tm_di_dev /TM/data_ingest
+            sudo chown -R tm_di_dev:tm_di_dev /TM/data_ingest/jobs
